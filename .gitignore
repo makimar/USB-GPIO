@@ -1,0 +1,25 @@
+# Firmware (ESP-IDF)
+firmware/build/
+firmware/sdkconfig.old
+firmware/sdkconfig.local
+firmware/main/secrets.h
+firmware/.cache/
+
+# Editor/tooling
+.clangd/
+.vscode/
+.idea/
+
+# Host (Python)
+host/.venv/
+host/**/__pycache__/
+**/__pycache__/
+host/**/*.egg-info/
+host/dist/
+*.egg-info/
+dist/
+.pytest_cache/
+.ruff_cache/
+
+# OS
+.DS_Store

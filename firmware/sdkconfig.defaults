@@ -1,0 +1,16 @@
+# USB CDC transport: route stdin/stdout through the C6's built-in USB
+# Serial/JTAG peripheral instead of a UART. See CLAUDE.md "Transport".
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+CONFIG_ESP_CONSOLE_SECONDARY_NONE=y
+
+# Keep routine boot chatter off the wire so "READY\n" arrives promptly, but
+# keep error-level logs (crash dumps, driver failures) - the host is only
+# required to tolerate a READY banner and ignore anything before the first
+# OK/ERR reply (docs/protocol.md), and silencing real errors would make
+# firmware bugs much harder to diagnose in the field.
+CONFIG_LOG_DEFAULT_LEVEL_ERROR=y
+CONFIG_BOOTLOADER_LOG_LEVEL_NONE=y
+
+# Full backtraces on panic (small per-call overhead, not on any hot path
+# here) instead of just a raw register dump.
+CONFIG_ESP_SYSTEM_USE_FRAME_POINTER=y
