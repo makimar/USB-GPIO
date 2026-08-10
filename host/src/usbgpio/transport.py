@@ -97,14 +97,18 @@ class LineTransport:
         raise ConnectionTimeoutError(f"unparseable reply to {line!r}: {reply!r}")
 
     def _read_reply(self, command: str) -> str:
-        # Skip the boot-time READY banner (CLAUDE.md, "Protocol" -> "Rules"):
-        # it may show up before the reply to the first command sent after
-        # opening the port, so treat it as noise rather than a reply.
+        # docs/protocol.md: "treat any line that isn't a well-formed OK
+        # .../ERR ... reply ... as noise to be skipped, not just the
+        # literal string READY" - covers the boot banner, but also
+        # anything else that might land on the same stream (firmware log
+        # output that isn't fully suppressed, USB framing hiccups, etc.).
+        # A line starting with "OK"/"ERR" is never ambiguous: those two
+        # words are reserved and can't appear as the first token of
+        # anything else the firmware prints.
         while True:
             raw = self._ser.readline()
             if not raw:
                 raise ConnectionTimeoutError(f"no reply to {command!r}")
             text = raw.decode("ascii", errors="replace").strip()
-            if text == "" or text == "READY":
-                continue
-            return text
+            if text.startswith("OK") or text.startswith("ERR"):
+                return text

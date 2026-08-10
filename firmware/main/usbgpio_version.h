@@ -4,4 +4,4 @@
 // "Documentation" and "Semver rules").
 #pragma once
 
-#define USBGPIO_VERSION "0.2.0"
+#define USBGPIO_VERSION "0.2.1"

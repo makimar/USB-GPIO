@@ -67,6 +67,17 @@ def test_boot_ready_banner_is_skipped_before_first_reply():
     assert Board(LineTransport(ser)).version() == "usbgpio 0.1.0"
 
 
+def test_arbitrary_noise_lines_are_skipped_not_just_ready():
+    # docs/protocol.md: any line that isn't a well-formed OK/ERR reply is
+    # noise to skip - not just the literal "READY" banner. Regression
+    # test for a real bug: a stray line (observed in practice as firmware
+    # log output landing on the same stream) was previously treated as
+    # if it were the actual reply, corrupting the result instead of being
+    # skipped.
+    ser = QueuedLineSerial([b"W (1234) wifi: some log line\n", b"OK usbgpio 0.1.0\n"])
+    assert Board(LineTransport(ser)).version() == "usbgpio 0.1.0"
+
+
 def test_no_reply_raises_timeout():
     ser = QueuedLineSerial([])  # readline() returns b"" immediately (simulated timeout)
     with pytest.raises(ConnectionTimeoutError):

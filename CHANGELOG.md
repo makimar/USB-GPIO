@@ -6,6 +6,34 @@ uses [Semantic Versioning](https://semver.org/). The version here, the
 firmware's `VERSION` reply, and the Python package version are always kept
 in sync (CLAUDE.md, "Semver rules").
 
+## [0.2.1] - 2026-08-10
+
+### Fixed
+
+- **Protocol corruption under real WiFi load.** With WiFi actually
+  connected (not just configured), `ESP_LOGx()` calls made internally by
+  the WiFi/HTTP/mDNS stack shared the same stdout stream as protocol
+  replies. A log line landing mid-transmission could corrupt a reply -
+  observed in practice as an intermittent bare `OK` with its data
+  silently missing (`READALL` and `ADC` both hit this in real use,
+  surfacing as `ValueError: invalid literal for int() with base 16: ''`
+  and a similar unpacking error in the host library). Fixed on both
+  sides:
+  - Firmware: all `esp_log` output is now discarded
+    (`esp_log_set_vprintf`) rather than sharing the USB CDC stream with
+    protocol replies. Crash/panic diagnostics are unaffected - they
+    write directly to the USB Serial/JTAG peripheral, bypassing
+    `esp_log` entirely.
+  - Host: `LineTransport._read_reply()` now only accepts lines starting
+    with `OK`/`ERR` as replies (matching what docs/protocol.md already
+    specified), instead of only skipping blank lines and the literal
+    `READY` banner. Any other stray line is treated as noise, not a
+    malformed answer.
+  - Verified on real hardware with WiFi connected: 2+ minutes of
+    `READALL` polling at the TUI's exact 0.5s rate, plus concurrent HTTP
+    requests against the live status page, with zero errors (previously
+    reproducible, if infrequent, under this exact combination).
+
 ## [0.2.0] - 2026-08-10
 
 Optional WiFi status: connect the board to your network for a read-only
@@ -83,6 +111,7 @@ status page and a status LED, without changing the USB protocol at all.
   `sdkconfig.defaults` (no secrets) is tracked. See `CLAUDE.md`'s Public
   Repo Rules.
 
+[0.2.1]: https://github.com/makimar/USB-GPIO/releases/tag/v0.2.1
 [0.2.0]: https://github.com/makimar/USB-GPIO/releases/tag/v0.2.0
 
 ## [0.1.0] - 2026-08-09

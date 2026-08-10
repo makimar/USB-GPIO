@@ -1,12 +1,14 @@
 // Single task: read a line from USB CDC (USB Serial/JTAG, routed to
 // stdin/stdout via CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG), dispatch it, reply.
 // See CLAUDE.md "Protocol" and docs/protocol.md for the command set.
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
 #include "driver/usb_serial_jtag.h"
 #include "driver/usb_serial_jtag_vfs.h"
+#include "esp_log.h"
 #include "nvs_flash.h"
 
 #include "cmd_adc.h"
@@ -75,8 +77,25 @@ static void read_line(char *buf, size_t buf_size)
     buf[len] = '\0';
 }
 
+// ESP_LOGx() (used internally by the WiFi/HTTP/mDNS stack once wifi_start()
+// runs) shares the same stdout stream as protocol replies. A log line
+// landing mid-printf() can corrupt a reply in transit - this caused a
+// real, hard-to-reproduce bug (an intermittent bare "OK" with its data
+// silently missing, only seen after WiFi had been running a while).
+// Discarding all esp_log output costs nothing for debugging: panics and
+// crash dumps write directly to the USB Serial/JTAG peripheral,
+// bypassing esp_log entirely, so they're unaffected by this.
+static int discard_log(const char *fmt, va_list args)
+{
+    (void)fmt;
+    (void)args;
+    return 0;
+}
+
 void app_main(void)
 {
+    esp_log_set_vprintf(discard_log);
+
     // CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG alone leaves stdin/stdout on the
     // ROM's polling console implementation, whose blocking fgets() never
     // yields to the scheduler - with nothing to read, that starves the
