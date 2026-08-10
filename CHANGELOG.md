@@ -6,6 +6,35 @@ uses [Semantic Versioning](https://semver.org/). The version here, the
 firmware's `VERSION` reply, and the Python package version are always kept
 in sync (CLAUDE.md, "Semver rules").
 
+## [0.2.0] - 2026-08-10
+
+Optional WiFi status: connect the board to your network for a read-only
+status page and a status LED, without changing the USB protocol at all.
+
+### Added
+
+- Optional WiFi station mode, configured via `idf.py menuconfig` ->
+  "USB GPIO Extender" (SSID/password/mDNS hostname). Off by default;
+  connects and retries in the background without ever blocking or
+  breaking USB serial operation. See `CLAUDE.md`'s "WiFi status" section.
+- Read-only HTTP status page (`http://esp32.local/` by default) showing
+  every usable pin's live digital level and PWM state. No control
+  endpoints - USB serial remains the only way to change pin state.
+- mDNS hostname (`esp32.local` by default, configurable).
+- Onboard status LED turns solid blue once connected (off otherwise).
+
+### Changed
+
+- Firmware now uses a custom partition table (`firmware/partitions.csv`)
+  with a 2MB app partition and the chip's real 4MB flash size, instead of
+  the previous 1MB/2MB defaults - room for this and future growth.
+- `firmware/sdkconfig` is no longer committed (WiFi credentials would
+  otherwise land in git history via `idf.py menuconfig`); only
+  `sdkconfig.defaults` (no secrets) is tracked. See `CLAUDE.md`'s Public
+  Repo Rules.
+
+[0.2.0]: https://github.com/makimar/USB-GPIO/releases/tag/v0.2.0
+
 ## [0.1.0] - 2026-08-09
 
 Initial scaffold: v1 protocol, firmware, and host package.

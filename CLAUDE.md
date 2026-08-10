@@ -27,7 +27,8 @@ LICENSE       MIT
   No custom USB driver — plain serial, 115200 baud (rate is ignored by
   USB CDC anyway).
 - **Firmware:** ESP-IDF (not Arduino). Single task reads commands from
-  USB, executes, replies.
+  USB, executes, replies. Optional WiFi (see "WiFi status" below) runs
+  independently of that task and can never block or replace it.
 - **Host:** Python package `usbgpio` using `pyserial`. Three entry
   points, all built on the same `Board` API:
   - Library: `from usbgpio import Board`
@@ -85,6 +86,33 @@ Explicitly **out of scope for v1:** interrupts/events pushed to host,
 I2C/SPI passthrough, pulse counting, RMT. Design the protocol so these
 can be added without breaking changes.
 
+## WiFi status (optional, v0.2.0+)
+
+USB serial is, and remains, the only way to control pins — this is
+additive and read-only, never a second control path. Off by default;
+configured via `idf.py menuconfig` → "USB GPIO Extender" (WiFi
+SSID/password/mDNS hostname). With SSID blank, none of this code runs
+and the board behaves exactly like a USB-only build.
+
+- **`firmware/main/wifi.c`:** station-mode connect, entirely
+  event/callback-driven. Called once from `app_main`, *after* the USB
+  driver is up and `READY` has been sent — must never delay or block USB
+  availability, and a WiFi failure (bad password, AP unreachable, driver
+  init failure) must never crash or hang the device. Retries
+  indefinitely on disconnect.
+- **`firmware/main/led_status.c`:** on connect, sets the onboard
+  addressable status LED (`led_strip` component, GPIO8 on the
+  ESP32-C6-DevKitC-1) solid blue; off while disconnected.
+- **`firmware/main/http_status.c`:** a **read-only** status page (GET
+  `/`) once connected — current level and (if active) PWM freq/duty for
+  every usable pin. No write/control endpoints; adding one would break
+  the "USB is the only control path" invariant above.
+- **mDNS:** board is reachable at `<hostname>.local` (default
+  `esp32.local`) once connected.
+- Credentials are set via `idf.py menuconfig` into the local (gitignored)
+  `sdkconfig` — never in `sdkconfig.defaults` or anywhere else committed.
+  See "Public Repo Rules".
+
 ## Protocol (line-based, human-debuggable)
 
 ASCII lines terminated with `\n`. Every command gets exactly one reply:
@@ -114,6 +142,7 @@ Firmware:
 ```bash
 cd firmware
 idf.py set-target esp32c6
+idf.py menuconfig   # optional: WiFi SSID/password under "USB GPIO Extender"
 idf.py build
 idf.py -p /dev/cu.usbmodem* flash monitor
 ```
@@ -164,11 +193,16 @@ pytest
 This is a public repository. Non-negotiables:
 
 - **Never commit secrets** — no WiFi credentials, API keys, or tokens
-  anywhere, including firmware `sdkconfig` and test scripts. WiFi
-  config (if ever needed) goes in a gitignored `secrets.h` /
-  `sdkconfig.local` with a committed `*.example` template.
-- `.gitignore` covers: `firmware/build/`, `sdkconfig.old`,
-  `host/.venv/`, `__pycache__/`, `*.egg-info/`, `dist/`, `.DS_Store`.
+  anywhere, including firmware `sdkconfig` and test scripts. This is why
+  `firmware/sdkconfig` (the generated, locally-editable config —
+  WiFi credentials in particular go here via `idf.py menuconfig`) is
+  gitignored rather than committed, unlike most ESP-IDF example projects;
+  only `sdkconfig.defaults` (no secrets, baseline options only) is
+  tracked.
+- `.gitignore` covers: `firmware/build/`, `firmware/sdkconfig`,
+  `sdkconfig.old`, `firmware/managed_components/` (Component-Manager
+  fetched deps — `dependencies.lock` itself is committed), `host/.venv/`,
+  `__pycache__/`, `*.egg-info/`, `dist/`, `.DS_Store`.
 - No personal data in code or examples (paths like `/Users/marko/...`
   → use generic placeholders).
 - Releases are git tags `v<semver>` matching the CHANGELOG entry.

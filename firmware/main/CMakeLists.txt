@@ -6,6 +6,22 @@ idf_component_register(
         "cmd_gpio.c"
         "cmd_pwm.c"
         "cmd_adc.c"
+        "wifi.c"
+        "led_status.c"
+        "http_status.c"
     INCLUDE_DIRS "."
-    REQUIRES driver esp_driver_gpio esp_driver_ledc esp_driver_usb_serial_jtag esp_adc
+    REQUIRES
+        driver
+        esp_driver_gpio
+        esp_driver_ledc
+        esp_driver_usb_serial_jtag
+        esp_adc
+        esp_driver_rmt
+        nvs_flash
+        esp_wifi
+        esp_event
+        esp_netif
+        esp_http_server
+        mdns
+        led_strip
 )

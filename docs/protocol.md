@@ -140,3 +140,11 @@ This is v1 of the protocol. Deliberately left out, but reserved room for
 without breaking changes: interrupts/events pushed unprompted from board
 to host, I2C/SPI passthrough, pulse counting, RMT, and a binary framing
 mode. See CLAUDE.md's Roadmap.
+
+## WiFi status page (out of band, v0.2.0+)
+
+The optional WiFi status page (see CLAUDE.md's "WiFi status" section and
+the README) is **not part of this protocol** - it's a read-only HTML page
+served over HTTP once connected, has no relation to the USB serial line
+protocol above, and requires no changes here to add or change. USB serial
+remains the only way to send commands to the board.

@@ -7,12 +7,14 @@
 
 #include "driver/usb_serial_jtag.h"
 #include "driver/usb_serial_jtag_vfs.h"
+#include "nvs_flash.h"
 
 #include "cmd_adc.h"
 #include "cmd_gpio.h"
 #include "cmd_pwm.h"
 #include "protocol.h"
 #include "usbgpio_version.h"
+#include "wifi.h"
 
 #define LINE_BUF_SIZE 128
 
@@ -88,6 +90,25 @@ void app_main(void)
     // Host must tolerate this banner (CLAUDE.md "Protocol" -> "Rules").
     printf("READY\n");
     fflush(stdout);
+
+    // NVS is required by the WiFi driver (calibration/config storage)
+    // regardless of whether WiFi ends up enabled - wifi_start() itself is
+    // a no-op without a configured SSID, so this is cheap either way.
+    // Standard recovery path: a truncated/incompatible NVS partition
+    // (first boot, or an IDF/partition-table change) fails once, gets
+    // erased, and succeeds on retry.
+    esp_err_t nvs_err = nvs_flash_init();
+    if (nvs_err == ESP_ERR_NVS_NO_FREE_PAGES || nvs_err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        nvs_err = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(nvs_err);
+
+    // Comes after the USB driver is up and READY has been sent: WiFi
+    // setup must never delay or block USB availability. wifi_start()
+    // itself only kicks off an async connection attempt (or does nothing,
+    // if unconfigured) and returns immediately either way.
+    wifi_start();
 
     char line[LINE_BUF_SIZE];
     while (true) {

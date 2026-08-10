@@ -39,6 +39,15 @@ its datasheet before assuming GPIO24-30 are safe to reconfigure — this
 firmware reserves them defensively but hasn't been verified against every
 possible board variant.
 
+Separately, **GPIO8 is used directly by the onboard status LED** (see
+[WiFi status page](#optional-wifi-status-page)) on the ESP32-C6-DevKitC-1
+this project was developed against. It's already in the reserved table
+above as a strapping pin, so `MODE`/`WRITE` never touch it anyway — but
+if you're on different hardware, the LED driver may be pointed at the
+wrong pin (`firmware/main/led_status.h`, `LED_STATUS_GPIO`); it fails
+safely (logs and continues without a working LED) rather than damaging
+anything, but won't visually confirm a WiFi connection either.
+
 Only GPIO0-GPIO6 have an ADC1 channel, so `ADC` only works on those.
 
 ### Wiring warnings
@@ -73,6 +82,33 @@ idf.py -p /dev/cu.usbmodem101 flash monitor
 (swap in your board's actual port — see [Linux notes](#linux-notes) if
 you're not sure how to find it on Linux). `monitor` is optional; it just
 lets you watch the board's own output. Exit it with `Ctrl+]`.
+
+### Optional: WiFi status page
+
+The board can join your WiFi network to serve a small **read-only**
+status page — it never becomes a second way to control pins; USB serial
+remains the only control path, WiFi failures never affect it, and it's
+entirely off by default.
+
+To enable it, run this **before** `idf.py build`:
+
+```bash
+idf.py menuconfig
+```
+
+Go to **"USB GPIO Extender"** and set your WiFi SSID and password, then
+save and exit. Build and flash as usual. Once connected:
+
+- The onboard status LED turns solid blue.
+- The board is reachable at **`esp32.local`** (mDNS; configurable in the
+  same menu) and serves a live pin-status page at `http://esp32.local/`.
+
+Leaving the SSID blank (the default) disables WiFi entirely — the
+firmware is a plain USB GPIO extender either way.
+
+**Do not commit your real SSID/password.** They're stored in
+`firmware/sdkconfig`, which is gitignored specifically because of this —
+see `CLAUDE.md`'s Public Repo Rules if you're touching that file.
 
 ## Installing the host package
 

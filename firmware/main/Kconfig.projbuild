@@ -1,0 +1,31 @@
+menu "USB GPIO Extender"
+
+    config USBGPIO_WIFI_SSID
+        string "WiFi SSID"
+        default ""
+        help
+            SSID of the WiFi network to join. Leave blank to disable WiFi
+            entirely - the firmware still works as a plain USB GPIO
+            extender either way; WiFi only adds a read-only status page
+            and a status LED, never a second control path.
+
+            Set via "idf.py menuconfig", not by editing this default: real
+            credentials belong in your local sdkconfig, which is
+            gitignored. Never put a real SSID/password here or in
+            sdkconfig.defaults - both are committed to a public repo.
+
+    config USBGPIO_WIFI_PASSWORD
+        string "WiFi password"
+        default ""
+        help
+            WPA2 password for USBGPIO_WIFI_SSID. Same rule as above: set
+            via menuconfig, never commit a real value.
+
+    config USBGPIO_MDNS_HOSTNAME
+        string "mDNS hostname"
+        default "esp32"
+        help
+            Once connected to WiFi, the board is reachable at
+            <this>.local (default: esp32.local) for the status page.
+
+endmenu

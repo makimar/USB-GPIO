@@ -14,3 +14,15 @@ CONFIG_BOOTLOADER_LOG_LEVEL_NONE=y
 # Full backtraces on panic (small per-call overhead, not on any hot path
 # here) instead of just a raw register dump.
 CONFIG_ESP_SYSTEM_USE_FRAME_POINTER=y
+
+# The chip actually has 4MB of flash (the default target config assumes
+# 2MB); use a custom partition table sized for that, see partitions.csv.
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE="4MB"
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+
+# WiFi is optional (see main/Kconfig.projbuild): station mode only, no
+# soft-AP/mesh/enterprise auth needed, so keep the WiFi driver's memory
+# footprint down.
+CONFIG_ESP_WIFI_SOFTAP_SUPPORT=n

@@ -1,9 +1,13 @@
 # Firmware (ESP-IDF)
 firmware/build/
+firmware/sdkconfig
 firmware/sdkconfig.old
 firmware/sdkconfig.local
 firmware/main/secrets.h
 firmware/.cache/
+# Fetched by the Component Manager at build time (mdns, led_strip); only
+# dependencies.lock (the resolved version pin) is committed.
+firmware/managed_components/
 
 # Editor/tooling
 .clangd/

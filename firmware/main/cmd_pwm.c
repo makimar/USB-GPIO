@@ -19,6 +19,8 @@
 // docs/protocol.md; v1 accepts this as a hardware limit.
 static int channel_for_pin[USBGPIO_MAX_GPIO + 1]; // -1 if pin has no active channel
 static int pin_for_channel[LEDC_CHANNEL_MAX];      // -1 if channel is free
+static int pin_freq_hz[USBGPIO_MAX_GPIO + 1];      // valid only where channel_for_pin[pin] != -1
+static int pin_duty_pct[USBGPIO_MAX_GPIO + 1];     // ditto
 static bool initialized;
 
 static void lazy_init(void)
@@ -124,6 +126,8 @@ void cmd_pwm_start(int argc, char **argv)
 
     channel_for_pin[pin] = channel;
     pin_for_channel[channel] = pin;
+    pin_freq_hz[pin] = (int)freq_hz;
+    pin_duty_pct[pin] = (int)duty_pct;
     protocol_reply_ok(NULL);
 }
 
@@ -164,4 +168,15 @@ void cmd_pwm_reset_all(void)
         channel_for_pin[pin] = -1;
         pin_for_channel[channel] = -1;
     }
+}
+
+bool cmd_pwm_get_state(int pin, int *out_freq_hz, int *out_duty_pct)
+{
+    lazy_init();
+    if (pin < 0 || pin > USBGPIO_MAX_GPIO || channel_for_pin[pin] == -1) {
+        return false;
+    }
+    *out_freq_hz = pin_freq_hz[pin];
+    *out_duty_pct = pin_duty_pct[pin];
+    return true;
 }

@@ -1,0 +1,11 @@
+# Name,   Type, SubType, Offset,  Size, Flags
+#
+# The chip has 4MB of flash (see `esptool.py flash_id` /
+# `idf.py -p PORT flash` output). The default single-app table only
+# assumed 2MB and gave the app 1MB; this table corrects the flash size and
+# doubles the app partition to 2MB, leaving ~1.9MB unused - room for future
+# growth (e.g. WiFi/HTTP/mDNS in v0.2.0, and whatever comes after) without
+# needing another repartition.
+nvs,      data, nvs,     ,        0x6000,
+phy_init, data, phy,     ,        0x1000,
+factory,  app,  factory, ,        2M,
