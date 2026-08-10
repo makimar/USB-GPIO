@@ -113,10 +113,8 @@ save and exit. Build and flash as usual. Once connected:
 
 ![Status page](docs/images/status_page.png)
 
-*Rendered locally from the exact page template using real digital-level
-and PWM readings taken over USB — not a live screenshot over WiFi (this
-board's WiFi wasn't connected at the time). It'll look identical served
-for real; replace this image once you've confirmed that on your setup.*
+*Genuine live screenshot — fetched from `http://esp32.local/` over WiFi,
+with GPIO2/GPIO3 set moments earlier over USB.*
 
 Leaving the SSID blank (the default) disables WiFi entirely — the
 firmware is a plain USB GPIO extender either way.
