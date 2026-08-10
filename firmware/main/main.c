@@ -50,6 +50,29 @@ static void handle_line(char *line)
     }
 }
 
+// fgets() only ends a line on '\n'. Plenty of real terminals - idf.py
+// monitor's default --eol=CR among them - send a bare '\r' for Enter
+// instead, which a plain fgets()-based reader would simply never see as a
+// complete line. Read byte-by-byte and treat '\r' and '\n' as
+// interchangeable terminators; a stray paired byte just produces an empty
+// next line, which handle_line() already ignores.
+static void read_line(char *buf, size_t buf_size)
+{
+    size_t len = 0;
+    while (len < buf_size - 1) {
+        int c = fgetc(stdin);
+        if (c == EOF) {
+            clearerr(stdin); // don't let a transient EOF wedge future reads
+            continue;        // no data yet; loop back and block again
+        }
+        if (c == '\n' || c == '\r') {
+            break;
+        }
+        buf[len++] = (char)c;
+    }
+    buf[len] = '\0';
+}
+
 void app_main(void)
 {
     // CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG alone leaves stdin/stdout on the
@@ -68,9 +91,7 @@ void app_main(void)
 
     char line[LINE_BUF_SIZE];
     while (true) {
-        if (fgets(line, sizeof(line), stdin) == NULL) {
-            continue; // no data yet; USB CDC read just timed out
-        }
+        read_line(line, sizeof(line));
         handle_line(line);
     }
 }
