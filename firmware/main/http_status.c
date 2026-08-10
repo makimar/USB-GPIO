@@ -28,23 +28,28 @@ typedef struct {
     const char *note;
 } header_pin_t;
 
-// ESP32-C6-DevKitC-1 J1 (left) and J3 (right) headers, pins 1-16
+// ESP32-C6-DevKitM-1 J1 (left) and J3 (right) headers, pins 1-15
 // top-to-bottom, straight from Espressif's official user guide:
-// https://docs.espressif.com/projects/esp-dev-kits/en/latest/esp32c6/esp32-c6-devkitc-1/user_guide.html
-// If you're on different hardware, these two tables are the only thing
-// that needs updating - everything else queries pins generically.
+// https://docs.espressif.com/projects/esp-dev-kits/en/latest/esp32c6/esp32-c6-devkitm-1/user_guide.html
+// (verified against a photo of the actual board - it's DevKitM-1, not
+// the very similarly-named DevKitC-1, which has a different pin set:
+// notably GPIO14 vs GPIO10/GPIO11). If you're on different hardware,
+// these two tables are the only thing that needs updating - everything
+// else queries pins generically.
 static const header_pin_t J1_LEFT[] = {
-    {"3V3", -1, NULL}, {"RST", -1, NULL},         {NULL, 4, NULL}, {NULL, 5, NULL},
-    {NULL, 6, NULL},   {NULL, 7, NULL},            {NULL, 0, NULL}, {NULL, 1, NULL},
-    {NULL, 8, "status LED"}, {NULL, 10, NULL},     {NULL, 11, NULL}, {NULL, 2, NULL},
-    {NULL, 3, NULL},   {"5V", -1, NULL},           {"GND", -1, NULL}, {"NC", -1, NULL},
+    {"3V3", -1, NULL},        {"RST", -1, NULL}, {NULL, 2, NULL},
+    {NULL, 3, NULL},          {NULL, 4, "strapping"}, {NULL, 5, "strapping"},
+    {NULL, 0, NULL},          {NULL, 1, NULL},   {NULL, 8, "status LED"},
+    {NULL, 6, NULL},          {NULL, 7, NULL},   {NULL, 14, NULL},
+    {"GND", -1, NULL},        {"5V", -1, NULL},  {"GND", -1, NULL},
 };
 
 static const header_pin_t J3_RIGHT[] = {
-    {"GND", -1, NULL}, {NULL, 16, "U0TXD"},        {NULL, 17, "U0RXD"}, {NULL, 15, NULL},
-    {NULL, 23, NULL},  {NULL, 22, NULL},            {NULL, 21, NULL},   {NULL, 20, NULL},
-    {NULL, 19, NULL},  {NULL, 18, NULL},            {NULL, 9, NULL},    {"GND", -1, NULL},
-    {NULL, 13, "USB D+"}, {NULL, 12, "USB D-"},     {"GND", -1, NULL},  {"NC", -1, NULL},
+    {"GND", -1, NULL},        {NULL, 16, "U0TXD"}, {NULL, 17, "U0RXD"},
+    {NULL, 23, NULL},         {NULL, 22, NULL},    {NULL, 21, NULL},
+    {NULL, 20, NULL},         {NULL, 19, NULL},    {NULL, 18, NULL},
+    {NULL, 15, "strapping"},  {NULL, 9, "strapping"}, {"GND", -1, NULL},
+    {NULL, 13, "USB D+"},     {NULL, 12, "USB D-"}, {"GND", -1, NULL},
 };
 
 static void append(size_t *len, const char *fmt, ...)
@@ -119,7 +124,7 @@ static esp_err_t handle_root(httpd_req_t *req)
            "</style></head><body>"
            "<h1>USB GPIO Extender</h1>"
            "<p>Read-only, reloads every 2s. Pins are only ever changed over USB. "
-           "Layout matches the ESP32-C6-DevKitC-1 J1/J3 headers, top to bottom.</p>"
+           "Layout matches the ESP32-C6-DevKitM-1 J1/J3 headers, top to bottom.</p>"
            "<div class='board'>");
 
     append_header_table(&len, "J1 (left)", J1_LEFT, sizeof(J1_LEFT) / sizeof(J1_LEFT[0]));

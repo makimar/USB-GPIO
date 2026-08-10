@@ -125,11 +125,15 @@ first place).
 `ADC` reject reserved pins with `ERR 2 pin reserved`:
 
 - **USB Serial/JTAG:** GPIO12, GPIO13 - this is the transport itself.
-- **Strapping:** GPIO8, GPIO9.
+- **Strapping:** GPIO4, GPIO5, GPIO8, GPIO9, GPIO15 - the full ESP32-C6
+  strapping set (GPIO8/GPIO9 select boot mode; GPIO4/GPIO5/GPIO15 affect
+  JTAG signal source selection), confirmed against esptool's boot-mode
+  docs. An earlier version of this list only had GPIO8/GPIO9.
 - **Embedded flash:** GPIO24-GPIO30, assumed present on-chip/in-package
-  (true for the ESP32-C6-WROOM-1 module and for bare ESP32-C6FH4 chips
-  with embedded flash). If you're on hardware with external flash wiring
-  instead, verify this range against your exact board before trusting it.
+  (true for the ESP32-C6-WROOM-1 and ESP32-C6-MINI-1 modules, and for
+  bare ESP32-C6FH4 chips with embedded flash). If you're on hardware with
+  external flash wiring instead, verify this range against your exact
+  board before trusting it.
 
 `READ`/`WRITE`/`MODE` on a pin number outside GPIO0-GPIO30 returns
 `ERR 4 pin out of range` rather than `ERR 2`.

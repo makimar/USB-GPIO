@@ -26,27 +26,35 @@ e.g. `screen /dev/cu.usbmodem101 115200`).
 The firmware exposes GPIO0-GPIO30, minus a handful that are reserved and
 will always reject `MODE`/`WRITE`/`PWM` with `ERR 2 pin reserved`:
 
-| Reserved pins    | Why                                                |
-|-------------------|-----------------------------------------------------|
-| GPIO12, GPIO13     | USB Serial/JTAG — this is the link to your computer |
-| GPIO8, GPIO9       | Strapping pins (sampled at boot)                    |
-| GPIO24-GPIO30      | Embedded SPI flash (on-chip/in-package)             |
+| Reserved pins              | Why                                                |
+|------------------------------|-----------------------------------------------------|
+| GPIO12, GPIO13               | USB Serial/JTAG — this is the link to your computer |
+| GPIO4, GPIO5, GPIO8, GPIO9, GPIO15 | Strapping pins (sampled at boot)             |
+| GPIO24-GPIO30                | Embedded SPI flash (on-chip/in-package)             |
 
 The flash-pin range assumes a chip/module with embedded flash (true for
-the ESP32-C6-WROOM-1 module and for bare ESP32-C6FH-series chips). If
-you're on a board with external flash wiring instead, double-check against
-its datasheet before assuming GPIO24-30 are safe to reconfigure — this
-firmware reserves them defensively but hasn't been verified against every
-possible board variant.
+the ESP32-C6-WROOM-1 and ESP32-C6-MINI-1 modules, and for bare
+ESP32-C6FH-series chips). If you're on a board with external flash wiring
+instead, double-check against its datasheet before assuming GPIO24-30 are
+safe to reconfigure — this firmware reserves them defensively but hasn't
+been verified against every possible board variant.
 
 Separately, **GPIO8 is used directly by the onboard status LED** (see
-[WiFi status page](#optional-wifi-status-page)) on the ESP32-C6-DevKitC-1
+[WiFi status page](#optional-wifi-status-page)) on the ESP32-C6-DevKitM-1
 this project was developed against. It's already in the reserved table
 above as a strapping pin, so `MODE`/`WRITE` never touch it anyway — but
 if you're on different hardware, the LED driver may be pointed at the
 wrong pin (`firmware/main/led_status.h`, `LED_STATUS_GPIO`); it fails
 safely (logs and continues without a working LED) rather than damaging
 anything, but won't visually confirm a WiFi connection either.
+
+**Note on board naming:** this is the ESP32-C6-DevKitM-1 (ESP32-C6-MINI-1
+module) - easy to confuse with the similarly-named ESP32-C6-DevKitC-1
+(ESP32-C6-WROOM-1 module), which exposes a different pin set (e.g.
+GPIO10/GPIO11 instead of GPIO14). The status page's header layout
+(below) is specific to DevKitM-1; if you're on DevKitC-1 or something
+else, `firmware/main/http_status.c`'s `J1_LEFT`/`J3_RIGHT` tables are the
+only thing that needs updating to match.
 
 Only GPIO0-GPIO6 have an ADC1 channel, so `ADC` only works on those.
 
@@ -102,6 +110,13 @@ save and exit. Build and flash as usual. Once connected:
 - The onboard status LED turns solid blue.
 - The board is reachable at **`esp32.local`** (mDNS; configurable in the
   same menu) and serves a live pin-status page at `http://esp32.local/`.
+
+![Status page](docs/images/status_page.png)
+
+*Rendered locally from the exact page template using real digital-level
+and PWM readings taken over USB — not a live screenshot over WiFi (this
+board's WiFi wasn't connected at the time). It'll look identical served
+for real; replace this image once you've confirmed that on your setup.*
 
 Leaving the SSID blank (the default) disables WiFi entirely — the
 firmware is a plain USB GPIO extender either way.
@@ -178,9 +193,21 @@ for configuring the board without writing code. On start (unless
 `--profile` is given) it asks which saved profile to apply, or "blank" for
 none.
 
-Main view is a table of every usable pin: mode, current state, PWM
-freq/duty, and (for pins you've turned on ADC watch for) the live
-millivolt reading. It refreshes about twice a second.
+Main view mirrors the [WiFi status page](#optional-wifi-status-page)'s
+layout: two columns matching the board's physical J1 (left) / J3 (right)
+headers, top to bottom, including power/ground pins in their real
+position. Each pin's row shows its mode, current state, PWM freq/duty,
+and (for pins you've turned on ADC watch for) the live millivolt reading;
+reserved pins (strapping/USB/flash) are shown but never actionable. Data
+refreshes about twice a second. `Tab`/`Shift+Tab` moves focus between the
+two columns.
+
+![TUI](docs/images/tui.png)
+
+*Genuine screenshot — driven headlessly (Textual's own test/screenshot
+tooling) against this board over USB: GPIO2 set to `out` and driven high,
+GPIO3 running PWM, GPIO0 under live ADC watch, GPIO8 selected showing its
+reserved/LED status.*
 
 | Key | Action                                              |
 |-----|-------------------------------------------------------|

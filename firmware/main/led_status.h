@@ -7,11 +7,11 @@
 
 #include "esp_err.h"
 
-// GPIO the onboard status LED is wired to (ESP32-C6-DevKitC-1). Not in
-// pins.c's reserved list because it's never exposed through MODE/WRITE -
-// this module drives it directly over RMT, bypassing the GPIO command
-// path entirely, same as the boot-strapping pins it happens to overlap
-// with in other contexts.
+// GPIO the onboard status LED is wired to (ESP32-C6-DevKitM-1; also
+// happens to be correct for the similarly-named DevKitC-1). This is also
+// a strapping pin, so pins.c already rejects it via MODE/WRITE - this
+// module doesn't need to check that itself, since it drives the pin
+// directly over RMT, bypassing the GPIO command path entirely.
 #define LED_STATUS_GPIO 8
 
 // Initializes the LED strip driver. Safe to call even if no LED is

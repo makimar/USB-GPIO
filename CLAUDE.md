@@ -102,7 +102,10 @@ and the board behaves exactly like a USB-only build.
   indefinitely on disconnect.
 - **`firmware/main/led_status.c`:** on connect, sets the onboard
   addressable status LED (`led_strip` component, GPIO8 on the
-  ESP32-C6-DevKitC-1) solid blue; off while disconnected.
+  ESP32-C6-DevKitM-1) solid blue; off while disconnected. Verified
+  against a photo of the actual board (docs.espressif.com's DevKitM-1
+  user guide, not the similarly-named DevKitC-1, which has a different
+  pin set).
 - **`firmware/main/http_status.c`:** a **read-only** status page (GET
   `/`) once connected — current level and (if active) PWM freq/duty for
   every usable pin. No write/control endpoints; adding one would break
@@ -132,7 +135,7 @@ RESET                   -> all pins to default (input, no pull)
 
 Rules:
 - Firmware validates pin numbers; reserved pins (USB: GPIO12/13,
-  strapping: GPIO8/9, flash pins) return `ERR 2 pin reserved`.
+  strapping: GPIO4/5/8/9/15, flash pins) return `ERR 2 pin reserved`.
 - Unknown command → `ERR 1 unknown command`. Never crash on bad input.
 - Host must tolerate a `READY` banner line the firmware prints on boot.
 
