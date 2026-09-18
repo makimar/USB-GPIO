@@ -6,7 +6,10 @@ uses [Semantic Versioning](https://semver.org/). The version here, the
 firmware's `VERSION` reply, and the Python package version are always kept
 in sync (CLAUDE.md, "Semver rules").
 
-## [Unreleased]
+## [0.3.0] - 2026-09-18
+
+The WiFi status page goes live: pin state is pushed over server-sent
+events instead of reloading the whole page every 2 seconds.
 
 ### Changed
 
@@ -124,6 +127,7 @@ status page and a status LED, without changing the USB protocol at all.
   `sdkconfig.defaults` (no secrets) is tracked. See `CLAUDE.md`'s Public
   Repo Rules.
 
+[0.3.0]: https://github.com/makimar/USB-GPIO/releases/tag/v0.3.0
 [0.2.1]: https://github.com/makimar/USB-GPIO/releases/tag/v0.2.1
 [0.2.0]: https://github.com/makimar/USB-GPIO/releases/tag/v0.2.0
 
