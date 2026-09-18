@@ -110,6 +110,10 @@ save and exit. Build and flash as usual. Once connected:
 - The onboard status LED turns solid blue.
 - The board is reachable at **`esp32.local`** (mDNS; configurable in the
   same menu) and serves a live pin-status page at `http://esp32.local/`.
+  The board pushes fresh pin state every 2 seconds over server-sent
+  events (SSE), so the page updates in place without reloading; a small
+  indicator in the header shows the connection state (live /
+  reconnecting).
 
 ![Status page](docs/images/status_page.png)
 

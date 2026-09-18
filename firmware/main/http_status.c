@@ -1,22 +1,34 @@
 #include "http_status.h"
 
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 
 #include "driver/gpio.h"
 #include "esp_http_server.h"
 #include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
+#include "freertos/task.h"
 
 #include "cmd_pwm.h"
 #include "pins.h"
 
 static const char *TAG = "http_status";
 
-// esp_http_server's default config serves requests from a single worker
-// task, so a static (not per-request stack) buffer is safe here without
-// a lock - there's never more than one handler running at a time.
+// Shared render buffer. Handlers all run in esp_http_server's single
+// worker task, but the SSE broadcast task below renders into this same
+// buffer from its own context, so every use (render + send) must hold
+// s_lock.
 static char s_html[8192];
+static SemaphoreHandle_t s_lock;
+
+// Connected SSE clients (`GET /events`), kept alive across requests via
+// esp_http_server's async-handler API. Slots are guarded by s_lock.
+#define SSE_MAX_CLIENTS 4
+#define SSE_INTERVAL_MS 2000
+static httpd_req_t *s_sse_clients[SSE_MAX_CLIENTS];
 
 // One row of a pin header, top to bottom as physically silkscreened.
 // `label` is set for non-GPIO pins (power/ground/no-connect); NULL means
@@ -105,12 +117,31 @@ static void append_header_table(size_t *len, const char *title, const header_pin
     append(len, "</table>");
 }
 
+// The two header tables - both the initial page render and every SSE
+// event carry exactly this markup, so the page can swap it in wholesale.
+// Deliberately single-line (no '\n' anywhere): an SSE `data:` payload
+// ends at the first newline.
+static void render_board(size_t *len)
+{
+    append_header_table(len, "J1 (left)", J1_LEFT, sizeof(J1_LEFT) / sizeof(J1_LEFT[0]));
+    append_header_table(len, "J3 (right)", J3_RIGHT, sizeof(J3_RIGHT) / sizeof(J3_RIGHT[0]));
+}
+
+static void render_sse_frame(size_t *len)
+{
+    *len = 0;
+    append(len, "data: ");
+    render_board(len);
+    append(len, "\n\n");
+}
+
 static esp_err_t handle_root(httpd_req_t *req)
 {
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+
     size_t len = 0;
     append(&len,
            "<!doctype html><html><head><meta charset='utf-8'>"
-           "<meta http-equiv='refresh' content='2'>"
            "<title>USB GPIO Extender</title><style>"
            "body{font-family:monospace;background:#111;color:#eee;padding:1.5em}"
            "h1{margin-bottom:.2em}"
@@ -123,22 +154,129 @@ static esp_err_t handle_root(httpd_req_t *req)
            ".reserved td{color:#a66}"
            "</style></head><body>"
            "<h1>USB GPIO Extender</h1>"
-           "<p>Read-only, reloads every 2s. Pins are only ever changed over USB. "
+           "<p>Read-only, live over SSE (<span id='conn'>connecting...</span>). "
+           "Pins are only ever changed over USB. "
            "Layout matches the ESP32-C6-DevKitM-1 J1/J3 headers, top to bottom.</p>"
-           "<div class='board'>");
+           "<div class='board' id='board'>");
 
-    append_header_table(&len, "J1 (left)", J1_LEFT, sizeof(J1_LEFT) / sizeof(J1_LEFT[0]));
-    append_header_table(&len, "J3 (right)", J3_RIGHT, sizeof(J3_RIGHT) / sizeof(J3_RIGHT[0]));
+    render_board(&len);
 
-    append(&len, "</div></body></html>");
+    append(&len,
+           "</div><script>"
+           "var es=new EventSource('/events');"
+           "var conn=document.getElementById('conn');"
+           "es.onopen=function(){conn.textContent='live';};"
+           "es.onerror=function(){conn.textContent='reconnecting...';};"
+           "es.onmessage=function(e){document.getElementById('board').innerHTML=e.data;};"
+           "</script></body></html>");
 
-    httpd_resp_set_type(req, "text/html; charset=utf-8");
-    return httpd_resp_send(req, s_html, (ssize_t)(len < sizeof(s_html) ? len : sizeof(s_html) - 1));
+    esp_err_t err = httpd_resp_set_type(req, "text/html; charset=utf-8");
+    if (err == ESP_OK) {
+        err = httpd_resp_send(req, s_html,
+                              (ssize_t)(len < sizeof(s_html) ? len : sizeof(s_html) - 1));
+    }
+
+    xSemaphoreGive(s_lock);
+    return err;
+}
+
+static esp_err_t handle_events(httpd_req_t *req)
+{
+    // Handlers run one at a time (single httpd worker), so scanning and
+    // later claiming a slot can't race another handler - only the
+    // broadcast task, hence the lock.
+    int slot = -1;
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    for (int i = 0; i < SSE_MAX_CLIENTS; i++) {
+        if (s_sse_clients[i] == NULL) {
+            slot = i;
+            break;
+        }
+    }
+    xSemaphoreGive(s_lock);
+
+    if (slot < 0) {
+        httpd_resp_set_status(req, "503 Service Unavailable");
+        return httpd_resp_sendstr(req, "too many SSE clients");
+    }
+
+    // Detach the request from the worker so the socket stays open after
+    // this handler returns; all further sends go through the async copy.
+    httpd_req_t *async = NULL;
+    if (httpd_req_async_handler_begin(req, &async) != ESP_OK) {
+        httpd_resp_set_status(req, "500 Internal Server Error");
+        return httpd_resp_sendstr(req, "async handler begin failed");
+    }
+
+    httpd_resp_set_type(async, "text/event-stream");
+    httpd_resp_set_hdr(async, "Cache-Control", "no-cache");
+
+    // First event right away so the page has data before the first tick.
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    size_t len;
+    render_sse_frame(&len);
+    esp_err_t err = httpd_resp_send_chunk(async, s_html, (ssize_t)len);
+    if (err == ESP_OK) {
+        s_sse_clients[slot] = async;
+    }
+    xSemaphoreGive(s_lock);
+
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "SSE client rejected at first send: %s", esp_err_to_name(err));
+        httpd_req_async_handler_complete(async);
+    }
+    return ESP_OK;
+}
+
+static void sse_broadcast_task(void *arg)
+{
+    (void)arg;
+    for (;;) {
+        vTaskDelay(pdMS_TO_TICKS(SSE_INTERVAL_MS));
+
+        xSemaphoreTake(s_lock, portMAX_DELAY);
+        bool any = false;
+        for (int i = 0; i < SSE_MAX_CLIENTS; i++) {
+            if (s_sse_clients[i] != NULL) {
+                any = true;
+                break;
+            }
+        }
+        if (any) {
+            size_t len;
+            render_sse_frame(&len);
+            for (int i = 0; i < SSE_MAX_CLIENTS; i++) {
+                if (s_sse_clients[i] == NULL) {
+                    continue;
+                }
+                // A failed send is how we learn a client went away (tab
+                // closed, laptop asleep, socket LRU-purged): drop it and
+                // free the async request. Browsers reconnect on their own.
+                if (httpd_resp_send_chunk(s_sse_clients[i], s_html, (ssize_t)len) != ESP_OK) {
+                    httpd_req_async_handler_complete(s_sse_clients[i]);
+                    s_sse_clients[i] = NULL;
+                }
+            }
+        }
+        xSemaphoreGive(s_lock);
+    }
 }
 
 void http_status_start(void)
 {
+    s_lock = xSemaphoreCreateMutex();
+    if (s_lock == NULL) {
+        ESP_LOGE(TAG, "mutex create failed");
+        return;
+    }
+
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+    // With up to SSE_MAX_CLIENTS sockets parked open indefinitely,
+    // let the server reclaim the least-recently-active one instead of
+    // refusing new connections outright; a purged SSE socket surfaces
+    // as a failed send above and the browser reconnects.
+    config.lru_purge_enable = true;
+
     httpd_handle_t server = NULL;
     if (httpd_start(&server, &config) != ESP_OK) {
         ESP_LOGE(TAG, "httpd_start failed");
@@ -151,4 +289,19 @@ void http_status_start(void)
         .user_ctx = NULL,
     };
     httpd_register_uri_handler(server, &root);
+
+    httpd_uri_t events = {
+        .uri = "/events",
+        .method = HTTP_GET,
+        .handler = handle_events,
+        .user_ctx = NULL,
+    };
+    httpd_register_uri_handler(server, &events);
+
+    // Same priority as the main (USB protocol) task, and it spends its
+    // life blocked in vTaskDelay - it must never starve USB handling
+    // (CLAUDE.md, "WiFi status").
+    if (xTaskCreate(sse_broadcast_task, "sse_bcast", 4096, NULL, 1, NULL) != pdPASS) {
+        ESP_LOGE(TAG, "SSE broadcast task create failed");
+    }
 }

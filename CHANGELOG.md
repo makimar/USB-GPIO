@@ -6,6 +6,19 @@ uses [Semantic Versioning](https://semver.org/). The version here, the
 firmware's `VERSION` reply, and the Python package version are always kept
 in sync (CLAUDE.md, "Semver rules").
 
+## [Unreleased]
+
+### Changed
+
+- The WiFi status page now updates live via server-sent events: the
+  board keeps a `GET /events` stream open (up to 4 clients) and pushes
+  fresh pin state every 2 seconds, which the page swaps in without
+  reloading, replacing the previous full-page `<meta refresh>` reload.
+  A small indicator in the page header shows the stream state (live /
+  reconnecting), and the browser reconnects automatically after a WiFi
+  drop. Still strictly read-only - `/events` only ever reports pin
+  state, and USB serial remains the only control path.
+
 ## [0.2.1] - 2026-08-10
 
 ### Fixed
